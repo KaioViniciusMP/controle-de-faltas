@@ -191,3 +191,62 @@ insert into public.eventos (turma_id, data, descricao) values
 
 -- ---------- Depois de criar SUA conta pelo app, rode isto para virar admin ----------
 -- update public.profiles set is_admin = true, assinatura_status = 'ativa', assinatura_ate = '2030-01-01' where email = 'contkaio@gmail.com';
+
+-- =====================================================================
+-- Lembretes em segundo plano (Web Push). Bloco adicionado depois da
+-- primeira versão do schema - rode SÓ este bloco no SQL Editor, não o
+-- arquivo inteiro (o topo dele tem "drop table cascade" e apagaria o
+-- histórico de presença que já existe em produção).
+-- =====================================================================
+
+-- ---------- Inscrições de push (uma linha por dispositivo/navegador) ----------
+drop table if exists public.push_subscriptions cascade;
+
+create table public.push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  endpoint text not null unique,
+  p256dh text not null,
+  auth text not null,
+  user_agent text,
+  criado_em timestamptz not null default now()
+);
+
+alter table public.push_subscriptions enable row level security;
+
+create policy "push_subscriptions: proprio usuario" on public.push_subscriptions
+  for all to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+-- ---------- Quem precisa ser lembrado hoje ----------
+-- Dia letivo com aula, ainda não respondido, com acesso liberado (admin ou
+-- trial/ativa em dia). "Hoje" é calculado em America/Sao_Paulo, não em UTC,
+-- pra não disparar no dia local errado perto da meia-noite UTC.
+-- É o mesmo cálculo de isFeriado/isSemanaSemAulaRegular/disciplinasDoDia/
+-- isDiaLetivoComAula em app.js, restrito ao dia de hoje.
+create or replace function public.users_pending_today()
+returns table(user_id uuid)
+language sql
+security definer set search_path = public
+stable
+as $$
+  with hoje as (
+    select
+      (now() at time zone 'America/Sao_Paulo')::date as data,
+      extract(dow from (now() at time zone 'America/Sao_Paulo')::date)::text as dow
+  )
+  select p.id
+  from public.profiles p
+  join public.turmas t on t.id = p.turma_id
+  cross join hoje h
+  where (p.is_admin or (p.assinatura_status in ('trial', 'ativa') and p.assinatura_ate >= h.data))
+    and h.data >= t.data_inicio_registro
+    and not exists (select 1 from public.feriados f where f.turma_id = t.id and f.data = h.data)
+    and not exists (select 1 from public.semanas_sem_aula s where s.turma_id = t.id and h.data between s.inicio and s.fim)
+    and exists (select 1 from public.disciplinas d where d.turma_id = t.id and d.dias ? h.dow)
+    and not exists (select 1 from public.dias_respondidos dr where dr.user_id = p.id and dr.data = h.data);
+$$;
+
+revoke all on function public.users_pending_today() from public, anon, authenticated;
+grant execute on function public.users_pending_today() to service_role;

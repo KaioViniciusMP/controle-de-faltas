@@ -32,10 +32,11 @@ Não há servidor próprio: tudo roda estático (`serve.js` é só um servidor l
 | `config.js` | URL/chave do projeto Supabase + configs comerciais (preço, contato) — **não commitar com dados sensíveis de produção sem necessidade** |
 | `supabase-schema.sql` | Script único que cria todas as tabelas, políticas de segurança (RLS) e os dados iniciais da turma |
 | `manifest.json` | Metadados do PWA (ícone, nome, cores) |
-| `sw.js` | Service worker: cache offline e notificações |
+| `sw.js` | Service worker: cache offline e notificações (inclui recebimento de Web Push) |
 | `serve.js` | Servidor HTTP local simples (`node serve.js`), sem dependências |
 | `icons/` | Ícones do PWA (192px e 512px) |
 | `data.js` | **Legado, não é mais usado** pelo app (a grade/calendário migraram para o Supabase). Mantido só de referência. |
+| `supabase/functions/lembrete-diario/index.ts` | Edge Function (Deno) agendada por cron: dispara o lembrete diário (Web Push) para quem ainda não confirmou presença |
 
 ## Como rodar localmente
 
@@ -60,6 +61,21 @@ Sempre que mudar algo em `app.js`/`style.css`, um F5 normal já basta (o service
    ```
 7. Recarregue o app — a aba "Gestão" aparece só para quem é admin.
 
+## Configurar lembretes em segundo plano (Web Push)
+
+O app usa Web Push (VAPID) pra avisar o usuário nos dias de aula que ele ainda não confirmou presença, mesmo com o navegador fechado. É grátis (usa o serviço de push do próprio navegador — Chrome, Firefox, Safari — sem servidor de push próprio nem conta paga). A chave pública já vem em `config.js`; os passos abaixo são os que faltam, feitos direto no painel do Supabase (sem precisar de CLI):
+
+1. No **SQL Editor**, cole e rode só o bloco de SQL sob o comentário "Lembretes em segundo plano (Web Push)" no final de `supabase-schema.sql` — **não** rode o arquivo inteiro, ele tem `drop table cascade` no topo e apagaria o histórico de presença que já existe.
+2. Em **Edge Functions → Manage secrets**, cadastre:
+   - `VAPID_PUBLIC_KEY` — mesmo valor que está em `config.js`.
+   - `VAPID_PRIVATE_KEY` — a chave privada gerada junto (nunca vai pro repositório).
+   - `VAPID_SUBJECT` — `mailto:` + um e-mail de contato seu.
+3. Em **Edge Functions → Deploy a new function**, cole o conteúdo de `supabase/functions/lembrete-diario/index.ts` (nome da função: `lembrete-diario`).
+4. Em **Cron Jobs** (ou **Integrations → Cron**, o nome varia por versão do painel), crie um agendamento apontando pra função `lembrete-diario`. O banco do Supabase roda em UTC, e o Brasil não tem mais horário de verão (`America/Sao_Paulo` = UTC-3 fixo) — some 3 horas ao horário local desejado pra montar o cron (ex.: 22h local = `0 1 * * *` em UTC, já no dia seguinte).
+5. Teste: abra o app, clique em "Ativar lembretes" em Ajustes, depois use o botão de invocar/testar a função no painel — a notificação deve aparecer mesmo com o app fechado.
+
+Se `npm:web-push` não rodar no runtime da Edge Function (não foi testado ao vivo), a alternativa é implementar a assinatura VAPID e a criptografia do payload manualmente com `crypto.subtle` — mais código, mas sem dependência externa.
+
 ## Modelo de dados
 
 - `turmas` — uma turma/curso (nome, período, a partir de que data o app passa a perguntar presença).
@@ -74,7 +90,7 @@ Segurança (RLS): cada usuário só lê/edita os próprios dados de presença; a
 
 - **Faltas "por dia da semana"**: quando uma matéria tem aula em mais de um dia (ex.: Database Design em segunda e quinta), não dá pra saber com certeza em qual dos dias uma falta antiga (de antes do app existir) aconteceu. Por isso, o "já faltou X vez(es) nesse dia" só é exato para matérias que têm aula em um único dia da semana; nos outros casos, conta só o que foi respondido dentro do próprio app.
 - **Acesso liberado**: admins sempre têm acesso; os demais precisam estar com `assinatura_status` em `trial` ou `ativa` **e** `assinatura_ate` maior ou igual a hoje.
-- **Notificações em segundo plano**: funcionam de forma garantida só com o app aberto. Em background, dependem do Periodic Background Sync (hoje praticamente só Android/Chrome com o PWA instalado) — não há servidor de push dedicado.
+- **Notificações em segundo plano**: usam Web Push (VAPID) — funcionam com o navegador/PWA fechado em Chrome, Firefox e Edge, e em Safari a partir do iOS 16.4 quando o PWA foi instalado na tela inicial (não funciona numa aba comum do Safari). O envio diário é feito por uma Edge Function do Supabase agendada por cron (ver "Configurar lembretes em segundo plano" acima) — não há servidor próprio dedicado a isso.
 
 ## Limitações conhecidas / próximos passos
 

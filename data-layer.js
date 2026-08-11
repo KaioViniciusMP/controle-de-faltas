@@ -103,6 +103,22 @@ export async function apagarHistoricoCompleto(userId) {
   if (e2) throw e2;
 }
 
+// ---------- Push ----------
+export async function salvarInscricaoPush(userId, sub) {
+  const { error } = await supabase.from('push_subscriptions').upsert({
+    user_id: userId,
+    endpoint: sub.endpoint,
+    p256dh: sub.keys.p256dh,
+    auth: sub.keys.auth,
+    user_agent: navigator.userAgent,
+  }, { onConflict: 'endpoint' });
+  if (error) throw error;
+}
+export async function removerInscricaoPush(endpoint) {
+  const { error } = await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint);
+  if (error) throw error;
+}
+
 // ---------- Gestão (admin) ----------
 export async function adminListarPerfis() {
   const { data, error } = await supabase.from('profiles').select('*').order('criado_em', { ascending: false });

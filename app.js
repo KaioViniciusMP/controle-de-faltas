@@ -4,9 +4,10 @@ import {
   getPerfil, atualizarPerfil,
   getDadosTurma,
   getRespostas, marcarPresenca, removerResposta, apagarHistoricoCompleto,
+  salvarInscricaoPush,
   adminListarPerfis, adminAtualizarAssinatura,
 } from './data-layer.js';
-import { PRECO_MENSAL, CONTATO_ASSINATURA } from './config.js';
+import { PRECO_MENSAL, CONTATO_ASSINATURA, VAPID_PUBLIC_KEY } from './config.js';
 
 // ---------- Utilidades de data (sempre horário local, formato YYYY-MM-DD) ----------
 function toISODate(d) {
@@ -117,31 +118,48 @@ async function salvarCheckin(data, disciplinaIdsFaltou) {
 }
 
 // ---------- Notificações ----------
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+async function inscreverPush(reg) {
+  let sub = await reg.pushManager.getSubscription();
+  if (!sub) {
+    sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+    });
+  }
+  await salvarInscricaoPush(sessao.user.id, sub.toJSON());
+}
 async function ativarNotificacoes() {
-  if (!('Notification' in window)) {
-    alert('Este navegador não suporta notificações.');
+  if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+    alert('Este navegador não suporta notificações push.');
     return;
   }
   const perm = await Notification.requestPermission();
-  if (perm === 'granted') {
-    localStorage.setItem(LS_NOTIF, 'true');
-    try {
-      const reg = await navigator.serviceWorker.ready;
-      if ('periodicSync' in reg) {
-        const status = await navigator.permissions.query({ name: 'periodic-background-sync' });
-        if (status.state === 'granted') {
-          await reg.periodicSync.register('check-faltas', { minInterval: 20 * 60 * 60 * 1000 });
-        }
-      }
-      reg.showNotification('Lembretes ativados', {
-        body: 'Você será avisado quando o app estiver aberto e houver dias pendentes.',
-        icon: 'icons/icon-192.png',
-      });
-    } catch (e) { /* periodic sync não suportado - segue só com notificação em primeiro plano */ }
-    atualizarBadge();
-  } else {
+  if (perm !== 'granted') {
     alert('Permissão de notificação não concedida.');
+    render();
+    return;
   }
+  localStorage.setItem(LS_NOTIF, 'true');
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    await inscreverPush(reg);
+    reg.showNotification('Lembretes ativados', {
+      body: 'Você vai receber um aviso nos dias de aula que ainda não confirmou presença, mesmo com o app fechado.',
+      icon: 'icons/icon-192.png',
+    });
+  } catch (e) {
+    console.error(e);
+    alert('Não foi possível ativar o lembrete em segundo plano neste navegador.');
+  }
+  atualizarBadge();
   render();
 }
 async function atualizarBadge() {
@@ -182,6 +200,9 @@ function iniciar() {
     }
     await carregarTudo();
     setTimeout(notificarSeNecessario, 1500);
+    if (localStorage.getItem(LS_NOTIF) === 'true' && Notification.permission === 'granted') {
+      navigator.serviceWorker.ready.then(inscreverPush).catch(() => {});
+    }
   });
 }
 

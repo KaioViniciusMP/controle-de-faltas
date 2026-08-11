@@ -1,4 +1,4 @@
-const CACHE_NAME = 'faltas-v3';
+const CACHE_NAME = 'faltas-v4';
 const ASSETS = [
   './',
   './index.html',
@@ -44,30 +44,33 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Melhor esforço: em navegadores/instalações que suportam Periodic Background Sync
-// (hoje, praticamente só Chrome/Android com o PWA instalado), isso dispara uma
-// notificação local mesmo com o app fechado. Sem suporte, este evento nunca dispara
-// e o lembrete só aparece quando o app é aberto.
-self.addEventListener('periodicsync', (event) => {
-  if (event.tag === 'check-faltas') {
-    event.waitUntil(
-      self.registration.showNotification('Faltas - lembrete', {
-        body: 'Abra o app para confirmar sua presença nos dias pendentes.',
-        icon: 'icons/icon-192.png',
-        tag: 'faltas-pendentes',
-      })
-    );
-  }
+// Lembrete em segundo plano via Web Push: a Edge Function `lembrete-diario`
+// (Supabase, agendada por cron) envia isto para quem ainda não confirmou
+// presença hoje. Funciona com o navegador/app fechado, em qualquer
+// navegador com suporte a Push API (Chrome/Firefox/Edge, e Safari em
+// iOS 16.4+ quando o PWA foi instalado na tela inicial).
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try { payload = event.data ? event.data.json() : {}; } catch { payload = {}; }
+  const title = payload.title || 'Faltas - lembrete';
+  const options = {
+    body: payload.body || 'Abra o app para confirmar sua presença de hoje.',
+    icon: 'icons/icon-192.png',
+    tag: payload.tag || 'faltas-pendentes',
+    data: { url: payload.url || './index.html' },
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const url = event.notification.data?.url || './index.html';
   event.waitUntil(
     self.clients.matchAll({ type: 'window' }).then((clientList) => {
       for (const client of clientList) {
         if ('focus' in client) return client.focus();
       }
-      if (self.clients.openWindow) return self.clients.openWindow('./index.html');
+      if (self.clients.openWindow) return self.clients.openWindow(url);
     })
   );
 });
