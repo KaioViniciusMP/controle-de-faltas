@@ -687,7 +687,7 @@ function renderAjustes() {
     <div class="card">
       <h2>Lembretes</h2>
       <button id="btn-notif" class="botao">${notifOn ? 'Lembretes ativados ✓' : 'Ativar lembretes'}</button>
-      <p class="ajuda">Funciona de forma garantida enquanto o app estiver aberto. Em segundo plano depende do suporte do seu celular/navegador (mais confiável no Android com o app instalado).</p>
+      <p class="ajuda">Manda um aviso nos dias de aula que você ainda não confirmou presença, mesmo com o app fechado. No iPhone, precisa ter instalado o app na tela de início pelo Safari (compartilhar → Adicionar à Tela de Início) para funcionar em segundo plano.</p>
     </div>
     <div class="card">
       <h2>Corrigir faltas iniciais</h2>
