@@ -1,0 +1,14 @@
+[build]
+  publish = "."
+
+# O app não tem build step (HTML/CSS/JS puro), então não há comando de build.
+
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/manifest.json"
+  [headers.values]
+    Cache-Control = "no-cache"
