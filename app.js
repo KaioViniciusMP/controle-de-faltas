@@ -50,6 +50,7 @@ let disciplinas = [];
 let feriados = [];
 let semanas = [];
 let eventos = [];
+let horarios = [];
 let respostas = {};
 let gestaoDados = null;
 
@@ -217,6 +218,7 @@ async function carregarTudo() {
     feriados = dados.feriados;
     semanas = dados.semanas;
     eventos = dados.eventos;
+    horarios = dados.horarios;
     respostas = await getRespostas(sessao.user.id);
     statusApp = acessoLiberado() ? 'app' : 'bloqueado';
   } catch (e) {
@@ -494,9 +496,46 @@ function renderCalendario() {
     <div class="cal-toggle">
       <button data-calmodo="lista" class="${calModo === 'lista' ? 'active' : ''}">Lista</button>
       <button data-calmodo="mes" class="${calModo === 'mes' ? 'active' : ''}">Mês</button>
+      <button data-calmodo="grade" class="${calModo === 'grade' ? 'active' : ''}">Grade</button>
     </div>
-    ${calModo === 'mes' ? renderCalendarioMes() : renderCalendarioLista()}
+    ${calModo === 'mes' ? renderCalendarioMes() : calModo === 'grade' ? renderGradeHoraria() : renderCalendarioLista()}
   `;
+}
+
+const PALETA_DISCIPLINAS = ['#8b5fbf', '#2e9e5b', '#d97a3b', '#e0629b', '#3b7dd9', '#d9a520'];
+function corPorDisciplina() {
+  const mapa = {};
+  disciplinas.forEach((d, i) => { mapa[d.id] = PALETA_DISCIPLINAS[i % PALETA_DISCIPLINAS.length]; });
+  return mapa;
+}
+function renderGradeHoraria() {
+  if (horarios.length === 0) {
+    return '<div class="card"><p>Grade horária ainda não cadastrada para sua turma.</p></div>';
+  }
+  const cores = corPorDisciplina();
+  const porDia = {};
+  for (const h of horarios) {
+    (porDia[h.dia_semana] = porDia[h.dia_semana] || []).push(h);
+  }
+  const diasOrdenados = Object.keys(porDia).map(Number).sort((a, b) => a - b);
+  return diasOrdenados.map(dia => `
+    <div class="grade-dia">
+      <h3>${NOMES_DIA_SEMANA[dia]}</h3>
+      ${porDia[dia].map(h => {
+        const disc = disciplinas.find(d => d.id === h.disciplina_id);
+        return `
+          <div class="grade-bloco">
+            <div class="grade-bloco-topo">
+              <span class="grade-cor" style="background:${cores[h.disciplina_id] || 'var(--navy)'}"></span>
+              <span class="grade-nome">${disc ? disc.nome : '—'}</span>
+              <span class="grade-horario">${h.hora_inicio}–${h.hora_fim}</span>
+            </div>
+            <p class="grade-detalhe">${h.professor} · ${h.sala}</p>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `).join('');
 }
 
 function renderCalendarioLista() {

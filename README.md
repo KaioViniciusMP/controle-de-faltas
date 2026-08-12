@@ -8,7 +8,7 @@ App para acompanhar presença na faculdade: pergunta dia a dia se você foi às 
 - **Faltas** — duas visões:
   - *Por matéria*: faltas usadas / permitidas, com barra de progresso e alerta perto do limite.
   - *Por dia da semana*: quantas vezes ainda dá pra faltar aquele dia inteiro sem estourar o limite de nenhuma matéria (mostra qual matéria é o "gargalo").
-- **Calendário** — feriados, provas (PAI I/II/III), prazos, em lista ou em grade de mês (com o dia atual destacado).
+- **Calendário** — feriados, provas (PAI I/II/III), prazos, em lista, em grade de mês (com o dia atual destacado) ou na visão "Grade" com o horário, sala e professor de cada aula da semana.
 - **Gestão** *(só para admins)* — lista de usuários cadastrados, status da assinatura (trial/ativa/inadimplente/cancelada), validade, e resumo de receita estimada. Cobrança é manual (combinada fora do app) — não há integração de pagamento ainda.
 - **Ajustes** — dados da conta, ativar lembretes, corrigir faltas iniciais, editar/apagar histórico, sair.
 
@@ -81,6 +81,7 @@ Se `npm:web-push` não rodar no runtime da Edge Function (não foi testado ao vi
 - `turmas` — uma turma/curso (nome, período, a partir de que data o app passa a perguntar presença).
 - `disciplinas` — matérias de uma turma: carga horária, faltas permitidas, faltas "de base" (antes de existir o app), e em quais dias da semana tem aula e quanto cada ausência conta (`dias` é um JSON tipo `{"1": 2, "4": 2}`, onde a chave é o dia da semana — 0=domingo — e o valor é quantas faltas custa perder aquele dia).
 - `feriados`, `semanas_sem_aula`, `eventos` — calendário da turma (dias sem aula e datas importantes).
+- `horarios` — horário exato, sala e professor de cada aula (dia da semana, início/fim). É só pra exibição na tela "Calendário → Grade"; não entra no cálculo de faltas, que continua baseado só em `disciplinas.dias`.
 - `profiles` — um por usuário: turma, se é admin, status/validade da assinatura, correções manuais de faltas iniciais. Criado automaticamente (trigger) quando alguém se cadastra, com 7 dias de trial.
 - `dias_respondidos` / `respostas` — presença dia a dia de cada usuário (a existência de um registro em `dias_respondidos` indica "esse dia já foi respondido"; `respostas` guarda só as matérias em que faltou).
 

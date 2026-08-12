@@ -250,3 +250,37 @@ $$;
 
 revoke all on function public.users_pending_today() from public, anon, authenticated;
 grant execute on function public.users_pending_today() to service_role;
+
+-- =====================================================================
+-- Grade horária (horário exato, sala e professor de cada aula). Só pra
+-- exibição na tela "Calendário → Grade" - não afeta o cálculo de faltas,
+-- que continua usando só disciplinas.dias.
+-- =====================================================================
+
+drop table if exists public.horarios cascade;
+
+create table public.horarios (
+  id uuid primary key default gen_random_uuid(),
+  turma_id uuid not null references public.turmas(id) on delete cascade,
+  disciplina_id uuid not null references public.disciplinas(id) on delete cascade,
+  dia_semana int not null,             -- 0=Dom..6=Sáb, igual a disciplinas.dias
+  hora_inicio text not null,           -- "19:00"
+  hora_fim text not null,              -- "20:40"
+  sala text not null,
+  professor text not null
+);
+
+alter table public.horarios enable row level security;
+
+create policy "horarios: leitura autenticada" on public.horarios for select to authenticated using (true);
+
+-- Seed: grade da turma ADS 2B NOITE 2026/2
+insert into public.horarios (turma_id, disciplina_id, dia_semana, hora_inicio, hora_fim, sala, professor) values
+  ('b7a1874d-b460-4ef0-898f-a4396e80adc4', '1a1e8fe2-e86f-4eaa-84c9-df6e1276c0bb', 1, '19:00', '20:40', 'Lab 201 Paraíso', 'Leonardo Bontempo'),
+  ('b7a1874d-b460-4ef0-898f-a4396e80adc4', '6cb52351-f9c9-42a7-aaad-750f94bdb4f4', 1, '21:00', '22:40', 'Sala 01 Paraíso', 'Alan Andrade dos Santos'),
+  ('b7a1874d-b460-4ef0-898f-a4396e80adc4', 'e2b31113-53b5-4ba3-95de-0cee452dc2b6', 3, '19:00', '20:40', 'Lab 202 Paraíso', 'Gilberto Alves Pereira'),
+  ('b7a1874d-b460-4ef0-898f-a4396e80adc4', '6809a156-f9fa-4c23-87a0-ca1ef38b73e6', 3, '21:00', '22:40', 'Sala 101 Paraíso', 'Gustavo Bianchi Maia'),
+  ('b7a1874d-b460-4ef0-898f-a4396e80adc4', 'e2b31113-53b5-4ba3-95de-0cee452dc2b6', 4, '19:00', '20:40', 'Sala 01 Paraíso', 'Gilberto Alves Pereira'),
+  ('b7a1874d-b460-4ef0-898f-a4396e80adc4', '6cb52351-f9c9-42a7-aaad-750f94bdb4f4', 4, '21:00', '22:40', 'Sala 01 Paraíso', 'Alan Andrade dos Santos'),
+  ('b7a1874d-b460-4ef0-898f-a4396e80adc4', '6809a156-f9fa-4c23-87a0-ca1ef38b73e6', 5, '19:00', '20:40', 'Lab 202 Paraíso', 'Gustavo Bianchi Maia'),
+  ('b7a1874d-b460-4ef0-898f-a4396e80adc4', '09aca68d-6f47-47ab-9e3e-2436761252ca', 5, '21:00', '22:40', 'Sala 104 Paraíso', 'Fabio Nogueira de Campos');

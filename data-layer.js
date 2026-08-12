@@ -37,14 +37,15 @@ export async function atualizarPerfil(userId, campos) {
 
 // ---------- Dados da turma (grade/calendário) ----------
 export async function getDadosTurma(turmaId) {
-  const [turma, disciplinas, feriados, semanas, eventos] = await Promise.all([
+  const [turma, disciplinas, feriados, semanas, eventos, horarios] = await Promise.all([
     supabase.from('turmas').select('*').eq('id', turmaId).single(),
     supabase.from('disciplinas').select('*').eq('turma_id', turmaId).order('nome'),
     supabase.from('feriados').select('*').eq('turma_id', turmaId).order('data'),
     supabase.from('semanas_sem_aula').select('*').eq('turma_id', turmaId).order('inicio'),
     supabase.from('eventos').select('*').eq('turma_id', turmaId).order('data'),
+    supabase.from('horarios').select('*').eq('turma_id', turmaId).order('dia_semana').order('hora_inicio'),
   ]);
-  for (const r of [turma, disciplinas, feriados, semanas, eventos]) {
+  for (const r of [turma, disciplinas, feriados, semanas, eventos, horarios]) {
     if (r.error) throw r.error;
   }
   return {
@@ -53,6 +54,7 @@ export async function getDadosTurma(turmaId) {
     feriados: feriados.data,
     semanas: semanas.data,
     eventos: eventos.data,
+    horarios: horarios.data,
   };
 }
 
