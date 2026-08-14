@@ -753,20 +753,37 @@ function renderAjustes() {
 }
 
 function renderHistorico() {
-  const datas = Object.keys(respostas).sort().reverse();
-  if (datas.length === 0) {
-    app.querySelector('main').innerHTML = '<div class="card"><p>Nenhum dia registrado ainda.</p></div><button id="btn-voltar" class="botao secundario">Voltar</button>';
+  const hoje = todayStr();
+  const dias = [];
+  let d = turma.data_inicio_registro;
+  while (d <= hoje) {
+    if (isDiaLetivoComAula(d)) dias.push(d);
+    d = addDays(d, 1);
+  }
+  dias.reverse();
+
+  if (dias.length === 0) {
+    app.querySelector('main').innerHTML = '<div class="card"><p>Nenhum dia de aula registrado ainda.</p></div><button id="btn-voltar" class="botao secundario">Voltar</button>';
   } else {
     app.querySelector('main').innerHTML = `
+      <p class="ajuda">Confira cada dia de aula desde ${fmtBR(turma.data_inicio_registro)}. Marque só as matérias em que você realmente faltou e toque em salvar — dias sem nada marcado contam como presença.</p>
       <div class="lista-eventos">
-        ${datas.map(data => {
-          const marcados = Object.keys(respostas[data]).filter(id => respostas[data][id]);
-          const nomes = marcados.map(id => disciplinas.find(d => d.id === id)?.nome).filter(Boolean);
+        ${dias.map(data => {
+          const discs = disciplinasDoDia(data);
+          const marcado = respostas[data] || {};
+          const respondida = Object.prototype.hasOwnProperty.call(respostas, data);
           return `
             <div class="evento-linha">
-              <span class="evento-data">${fmtBR(data)}</span>
-              <span class="evento-desc">${nomes.length ? 'Faltou: ' + nomes.join(', ') : 'Presença completa'}</span>
-              <button class="botao-link" data-del="${data}">excluir registro</button>
+              <span class="evento-data">${NOMES_DIA_SEMANA[weekday(data)]}, ${fmtBR(data)}${!respondida ? ' <span class="badge-pendente">pendente</span>' : ''}</span>
+              <form class="historico-form" data-data="${data}">
+                ${discs.map(disc => `
+                  <label class="checkbox-linha">
+                    <input type="checkbox" name="falta" value="${disc.id}" ${marcado[disc.id] ? 'checked' : ''}>
+                    <span>${disc.nome}</span>
+                  </label>
+                `).join('')}
+                <div class="acoes"><button type="submit" class="botao-link">salvar</button></div>
+              </form>
             </div>`;
         }).join('')}
       </div>
@@ -774,10 +791,12 @@ function renderHistorico() {
     `;
   }
   document.getElementById('btn-voltar').addEventListener('click', render);
-  document.querySelectorAll('[data-del]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      await removerResposta(sessao.user.id, btn.dataset.del);
-      delete respostas[btn.dataset.del];
+  document.querySelectorAll('.historico-form').forEach(form => {
+    form.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const data = form.dataset.data;
+      const marcados = [...form.querySelectorAll('input[name="falta"]:checked')].map(i => i.value);
+      await salvarCheckin(data, marcados);
       renderHistorico();
     });
   });
