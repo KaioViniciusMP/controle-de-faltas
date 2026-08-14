@@ -182,7 +182,9 @@ main { padding: 1rem; }
 }
 
 /* Ajustes - histórico em acordeão */
+.historico-intro { margin-bottom: 1.1rem; }
 .acc-lista { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1rem; }
+#btn-voltar { margin-top: 0.9rem; }
 .acc-item {
   background: var(--card-bg);
   border: 1px solid var(--border);

@@ -770,7 +770,7 @@ function renderHistorico() {
   }
 
   app.querySelector('main').innerHTML = `
-    <p class="ajuda">Confira cada dia de aula desde ${fmtBR(turma.data_inicio_registro)}, do mais recente pro mais antigo. Toque num dia pra abrir, marque só as matérias em que você realmente faltou (dia sem nada marcado conta como presença) e depois salve tudo de uma vez.</p>
+    <p class="ajuda historico-intro">Confira cada dia de aula desde ${fmtBR(turma.data_inicio_registro)}, do mais recente pro mais antigo. Toque num dia pra abrir, marque só as matérias em que você realmente faltou (dia sem nada marcado conta como presença) e depois salve tudo de uma vez.</p>
     <div class="acc-lista">
       ${dias.map(data => {
         const discs = disciplinasDoDia(data);
