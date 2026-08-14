@@ -59,6 +59,7 @@ let faltasModo = 'materia';
 let calModo = 'lista';
 let calMes = null;
 let calSelecionado = null;
+let historicoAbertos = new Set();
 let authModo = 'entrar';
 let authErro = '';
 let authCarregando = false;
@@ -760,45 +761,69 @@ function renderHistorico() {
     if (isDiaLetivoComAula(d)) dias.push(d);
     d = addDays(d, 1);
   }
-  dias.reverse();
+  dias.reverse(); // mais recente primeiro
 
   if (dias.length === 0) {
     app.querySelector('main').innerHTML = '<div class="card"><p>Nenhum dia de aula registrado ainda.</p></div><button id="btn-voltar" class="botao secundario">Voltar</button>';
-  } else {
-    app.querySelector('main').innerHTML = `
-      <p class="ajuda">Confira cada dia de aula desde ${fmtBR(turma.data_inicio_registro)}. Marque só as matérias em que você realmente faltou e toque em salvar — dias sem nada marcado contam como presença.</p>
-      <div class="lista-eventos">
-        ${dias.map(data => {
-          const discs = disciplinasDoDia(data);
-          const marcado = respostas[data] || {};
-          const respondida = Object.prototype.hasOwnProperty.call(respostas, data);
-          return `
-            <div class="evento-linha">
-              <span class="evento-data">${NOMES_DIA_SEMANA[weekday(data)]}, ${fmtBR(data)}${!respondida ? ' <span class="badge-pendente">pendente</span>' : ''}</span>
-              <form class="historico-form" data-data="${data}">
-                ${discs.map(disc => `
-                  <label class="checkbox-linha">
-                    <input type="checkbox" name="falta" value="${disc.id}" ${marcado[disc.id] ? 'checked' : ''}>
-                    <span>${disc.nome}</span>
-                  </label>
-                `).join('')}
-                <div class="acoes"><button type="submit" class="botao-link">salvar</button></div>
-              </form>
-            </div>`;
-        }).join('')}
-      </div>
-      <button id="btn-voltar" class="botao secundario">Voltar</button>
-    `;
+    document.getElementById('btn-voltar').addEventListener('click', render);
+    return;
   }
-  document.getElementById('btn-voltar').addEventListener('click', render);
-  document.querySelectorAll('.historico-form').forEach(form => {
-    form.addEventListener('submit', async (ev) => {
-      ev.preventDefault();
-      const data = form.dataset.data;
-      const marcados = [...form.querySelectorAll('input[name="falta"]:checked')].map(i => i.value);
-      await salvarCheckin(data, marcados);
+
+  app.querySelector('main').innerHTML = `
+    <p class="ajuda">Confira cada dia de aula desde ${fmtBR(turma.data_inicio_registro)}, do mais recente pro mais antigo. Toque num dia pra abrir, marque só as matérias em que você realmente faltou (dia sem nada marcado conta como presença) e depois salve tudo de uma vez.</p>
+    <div class="acc-lista">
+      ${dias.map(data => {
+        const discs = disciplinasDoDia(data);
+        const marcado = respostas[data] || {};
+        const respondida = Object.prototype.hasOwnProperty.call(respostas, data);
+        const aberto = historicoAbertos.has(data);
+        return `
+          <div class="acc-item">
+            <button type="button" class="acc-header" data-toggle="${data}">
+              <span class="acc-titulo">${NOMES_DIA_SEMANA[weekday(data)]}, ${fmtBR(data)}${!respondida ? ' <span class="badge-pendente">pendente</span>' : ''}</span>
+              <span class="acc-chevron ${aberto ? 'aberto' : ''}">›</span>
+            </button>
+            <div class="acc-body ${aberto ? 'aberto' : ''}" data-data="${data}">
+              ${discs.map(disc => `
+                <label class="checkbox-linha">
+                  <input type="checkbox" name="falta" value="${disc.id}" ${marcado[disc.id] ? 'checked' : ''}>
+                  <span>${disc.nome}</span>
+                </label>
+              `).join('')}
+            </div>
+          </div>`;
+      }).join('')}
+    </div>
+    <button id="btn-salvar-historico" class="botao">Salvar alterações</button>
+    <button id="btn-voltar" class="botao secundario">Voltar</button>
+  `;
+
+  document.querySelectorAll('.acc-header').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const data = btn.dataset.toggle;
+      if (historicoAbertos.has(data)) historicoAbertos.delete(data);
+      else historicoAbertos.add(data);
       renderHistorico();
     });
+  });
+
+  document.getElementById('btn-voltar').addEventListener('click', () => { historicoAbertos.clear(); render(); });
+
+  document.getElementById('btn-salvar-historico').addEventListener('click', async () => {
+    const alteracoes = [...document.querySelectorAll('.acc-body[data-data]')].reduce((acc, corpo) => {
+      const data = corpo.dataset.data;
+      const marcados = [...corpo.querySelectorAll('input[name="falta"]:checked')].map(i => i.value).sort();
+      const atuais = Object.keys(respostas[data] || {}).filter(id => respostas[data][id]).sort();
+      if (JSON.stringify(marcados) !== JSON.stringify(atuais)) acc.push({ data, marcados });
+      return acc;
+    }, []);
+
+    if (alteracoes.length === 0) { alert('Nenhuma alteração para salvar.'); return; }
+    for (const { data, marcados } of alteracoes) {
+      await salvarCheckin(data, marcados);
+    }
+    alert(alteracoes.length === 1 ? 'Alteração salva!' : `${alteracoes.length} dias atualizados!`);
+    renderHistorico();
   });
 }
 
