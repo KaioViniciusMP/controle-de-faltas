@@ -1,4 +1,4 @@
-const CACHE_NAME = 'faltas-v6';
+const CACHE_NAME = 'faltas-v7';
 const ASSETS = [
   './',
   './index.html',

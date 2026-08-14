@@ -12,3 +12,41 @@
   for = "/manifest.json"
   [headers.values]
     Cache-Control = "no-cache"
+
+# HTML/JS/CSS do app: sempre revalidar no servidor. O app está em desenvolvimento
+# ativo e cache de CDN/navegador escondendo versões antigas já causou confusão
+# ao testar mudanças (a versão nova só aparecia depois de forçar refresh).
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/app.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/style.css"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/data-layer.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/supabaseClient.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/config.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/data.js"
+  [headers.values]
+    Cache-Control = "no-cache"

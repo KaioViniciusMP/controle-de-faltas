@@ -777,11 +777,19 @@ function renderHistorico() {
         const marcado = respostas[data] || {};
         const respondida = Object.prototype.hasOwnProperty.call(respostas, data);
         const aberto = historicoAbertos.has(data);
+        const faltouNomes = discs.filter(disc => marcado[disc.id]).map(disc => disc.nome);
+        const subtitulo = !respondida
+          ? 'Pendente de confirmação'
+          : (faltouNomes.length ? `Faltou: ${faltouNomes.join(', ')}` : 'Presença completa');
         return `
-          <div class="acc-item">
+          <div class="acc-item ${aberto ? 'aberto' : ''}">
             <button type="button" class="acc-header" data-toggle="${data}">
-              <span class="acc-titulo">${NOMES_DIA_SEMANA[weekday(data)]}, ${fmtBR(data)}${!respondida ? ' <span class="badge-pendente">pendente</span>' : ''}</span>
-              <span class="acc-chevron ${aberto ? 'aberto' : ''}">›</span>
+              <span class="acc-icone">📅</span>
+              <span class="acc-info">
+                <span class="acc-titulo">${NOMES_DIA_SEMANA[weekday(data)]}, ${fmtBR(data)}</span>
+                <span class="acc-subtitulo">${subtitulo}</span>
+              </span>
+              <span class="acc-chevron ${aberto ? 'aberto' : ''}">⌄</span>
             </button>
             <div class="acc-body ${aberto ? 'aberto' : ''}" data-data="${data}">
               ${discs.map(disc => `
